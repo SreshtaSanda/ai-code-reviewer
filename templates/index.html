@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Code Reviewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🤖 AI Code Reviewer</h1>
+
+<form method="POST">
+
+<label class="editor-label">
+    🚀 Enter Code for Analysis
+</label><br>
+<textarea id="code" name="code" rows="10" cols="50"
+placeholder="Paste your code here..."  >{{ code }}</textarea>
+<button type="submit">Review Code</button>
+<div id="loading" style="display:none;">🤖 AI is reviewing...</div>
+</form>
+</div>
+{% if request.method == "POST" %}
+<section>
+<h2>📊 Code Insights </h2>
+   <sub>Quick metrics and AI-powered overview of your submitted code.</sub>
+<div id="result">
+<div class="card">
+    <h3>📝 AI Summary</h3>
+    <p>{{ parsed_ai.summary }}</p>
+</div>
+ {% set parts = rule_result.split('📊 Complexity') %}
+<div class="metrics-grid">
+
+    <div class="metric-card">
+        <h4>🌐 Language</h4>
+        <span>{{ language.upper() }}</span>
+    </div>
+
+    <div class="metric-card">
+    <h4>🤖 AI Score</h4>
+    <span>{{ parsed_ai.overall_score }}/100</span>
+</div>
+
+
+    <div class="metric-card">
+        <h4>📊 Complexity</h4>
+        <span>
+        {{ parts[1].split('Level:')[1].split('\n')[0] }}
+        </span>
+    </div>
+
+    <div class="metric-card">
+        <h4>🔁 Loop count</h4>
+        <span>
+        {{ parts[1].split('Loops:')[1].split('\n')[0] }}
+        </span>
+    </div>
+
+    <div class="metric-card">
+        <h4>🔧 Function count</h4>
+        <span>
+        {{ parts[1].split('Functions:')[1].split('\n')[0] }}
+        </span>
+    </div>
+   
+    <div class="metric-card">
+        <h4>❓ Condition count</h4>
+        <span>
+        {{ parts[1].split('Conditions:')[1].split('\n')[0] }}
+        </span>
+    </div>
+
+</div>
+
+</div></section>
+<section>
+    <h2>🤖 AI Code Review</h2>
+<div class="card critical">
+    <h3 class="card-title">🔴 Issues Found</h3>
+    <ul>
+{% for line in parsed_ai.bugs.split('-') %}
+    {% if line.strip() %}
+        <li>{{ line.strip() }}</li>
+    {% endif %}
+{% endfor %}
+</ul>
+</div>
+
+<div class="card warning">
+    <h3>🛠 Suggested Improvements</h3>
+    <ul>
+{% for line in parsed_ai.improvements.split('-') %}
+    {% if line.strip() %}
+        <li>{{ line.strip() }}</li>
+    {% endif %}
+{% endfor %}
+</ul>
+</div>
+
+<div class="card improve">
+    <h3>✅ Best Practices</h3>
+    <ul>
+{% for line in parsed_ai.practices.split('-') %}
+    {% if line.strip() %}
+        <li>{{ line.strip() }}</li>
+    {% endif %}
+{% endfor %}
+</ul>
+</div>
+
+<div class="corrected-code">
+    <h3>💻 AI Corrected Code</h3>
+
+    <textarea id="correctedCode"></textarea>
+
+    <script id="correctedCodeData" type="text/plain">
+{{ parsed_ai.code }}
+    </script>
+</div>
+</section>
+
+<div class="container">
+<h2>📊 AI Quality Assessment</h2>
+<canvas id="scoreChart" height="100"></canvas>
+<script>
+const ctx = document.getElementById("scoreChart").getContext("2d");
+
+new Chart(ctx,{
+    type:"bar",
+    data:{
+        labels:[
+            "Correctness",
+            "Readability",
+            "Best Practices",
+            "Efficiency",
+            "Security"
+        ],
+        datasets:[{
+            label:"Score",
+            data:[
+                {{ parsed_ai.correctness|default(0, true) }},
+                {{ parsed_ai.readability|default(0, true) }},
+                {{ parsed_ai.best_practices_score|default(0, true) }},
+                {{ parsed_ai.efficiency|default(0, true) }},
+                {{ parsed_ai.security|default(0, true) }}
+        ],
+            backgroundColor:[
+                "#22c55e",
+                "#3b82f6",
+                "#f59e0b",
+                "#8b5cf6",
+                "#ef4444"
+            ],
+            borderRadius:8,
+            maxBarThickness: 70,
+            categoryPercentage: 0.9,
+            barPercentage: 0.85
+        }]
+    },
+    options:{
+        responsive:true,
+        plugins:{
+            legend:{
+                display:false
+            }
+        },
+        animation:{
+            duration:1200
+        },
+        scales:{
+            y:{
+                beginAtZero:true,
+                max:100
+            }
+        }
+    }
+});
+</script></div>
+
+
+{% endif %}
+
+<script>
+var editor = CodeMirror.fromTextArea(
+    document.getElementById("code"),
+    {
+        lineNumbers: true,
+        theme: "dracula",
+        mode:"python"
+    }
+);
+const modes = {
+    python: "python",
+    java: "text/x-java",
+    javascript: "javascript",
+    c: "text/x-csrc",
+    "c++": "text/x-c++src",
+    cpp: "text/x-c++src",
+    html: "htmlmixed",
+    css: "css",
+    sql: "sql"
+};
+
+const mode = modes["{{ language|lower }}"] || "text/plain";
+const correctedTextarea = document.getElementById("correctedCode");
+
+if (correctedTextarea) {
+
+    const correctedCode =
+        document.getElementById("correctedCodeData").textContent;
+
+    correctedTextarea.value = correctedCode;
+
+    var correctedEditor = CodeMirror.fromTextArea(
+        correctedTextarea,
+        {
+            lineNumbers: true,
+            readOnly: true,
+            theme: "dracula",
+            mode: mode
+        }
+    );
+
+    const height = Math.max(150, correctedEditor.lineCount() * 22);
+    correctedEditor.setSize(null, height);
+
+    setTimeout(function () {
+        correctedEditor.refresh();
+    }, 100);
+}
+document.querySelector("form").addEventListener("submit", function() {
+    document.getElementById("loading").style.display = "block";
+});
+document.addEventListener("keydown", function(e) {
+    if (e.ctrlKey && e.key === "Enter") {
+        document.querySelector("form").submit();
+    }
+});
+const code = editor.getValue();
+</script>
+</body>
+</html>
